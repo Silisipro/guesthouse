@@ -1,0 +1,147 @@
+const openEditModal = (index) => {
+  selectedTask.value = { ...store.tasks[index] }
+  selectedIndex.value = index
+  console.log('Opening edit modal with index:', index, 'and task:', selectedTask.value);
+  editModal.value.openModal();
+}
+
+const openAddModal = () => {
+  selectedTask.value = null
+  selectedIndex.value = null
+  console.log('Opening add modal');
+  taskModal.value.openModal();
+}
+
+
+
+import { ref, onMounted } from 'vue';
+
+const props = defineProps({
+  task: Object,
+  index: Number
+});
+
+onMounted(() => {
+  console.log('TaskForm mounted with task:', props.task, 'and index:', props.index);
+});
+
+
+
+const handleSubmit = () => {
+  console.log('Form submitted');
+  if (validateForm()) {
+    console.log('Form data before submit:', form.value);
+    if (props.index !== undefined) {
+      console.log('Updating task at index:', props.index);
+      store.updateTask(props.index, form.value);
+    } else {
+      console.log('Adding new task:', form.value);
+      store.addTask(form.value);
+    }
+    emit('close');
+  }
+}
+
+
+
+methods: {
+  openModal() {
+    console.log('Opening modal');
+    this.showModal = true;
+    document.addEventListener("click", this.closeOnOutsideClick);
+  },
+  closeModal() {
+    console.log('Closing modal');
+    this.showModal = false;
+    document.removeEventListener("click", this.closeOnOutsideClick);
+  },
+  closeOnOutsideClick(event) {
+    if (this.showModal) {
+      const modalElement = this.$refs.modalContainer;
+      if (modalElement && modalElement.contains(event.target)) {
+        this.closeModal();
+      }
+    }
+  },
+},
+
+
+
+actions: {
+  addTask(task) {
+    console.log('Adding task:', task);
+    this.tasks = [...this.tasks, task];
+    console.log('Updated tasks:', this.tasks);
+    localStorage.setItem('tasks', JSON.stringify(this.tasks));
+  },
+  updateTask(index, task) {
+    console.log('Updating task at index:', index, 'with data:', task);
+    this.tasks[index] = task;
+    console.log('Updated tasks:', this.tasks);
+    localStorage.setItem('tasks', JSON.stringify(this.tasks));
+  },
+  deleteTask(index) {
+    console.log('Deleting task at index:', index);
+    this.tasks.splice(index, 1);
+    console.log('Updated tasks:', this.tasks);
+    localStorage.setItem('tasks', JSON.stringify(this.tasks));
+  }
+}
+
+
+const getCurrentUserId = () => {
+  return localStorage.getItem('currentUserId');
+}
+const getUserInfo = () => {
+  const currentUserId = getCurrentUserId(); // Récupère l'identifiant de l'utilisateur actuel
+  if (!currentUserId) return null;
+
+  const users = JSON.parse(localStorage.getItem('users')) || [];
+  return users.find(user => user.userId === currentUserId);
+}
+
+
+import { defineStore } from 'pinia'
+
+export const useTaskStore = defineStore('taskStore', {
+  state: () => ({
+    tasks: JSON.parse(localStorage.getItem('tasks')) || [],
+    currentUser: getUserInfo()?.userId || null  // Récupère l'identifiant de l'utilisateur actuel
+  }),
+  actions: {
+    addTask(task) {
+      if (!this.currentUser) return;
+      task.userId = this.currentUser;
+      this.tasks = [...this.tasks, task];
+      localStorage.setItem('tasks', JSON.stringify(this.tasks));
+    },
+    updateTask(index, task) {
+      if (!this.currentUser) return;
+      this.tasks[index] = task;
+      localStorage.setItem('tasks', JSON.stringify(this.tasks));
+    },
+    deleteTask(index) {
+      if (!this.currentUser) return;
+      this.tasks.splice(index, 1);
+      localStorage.setItem('tasks', JSON.stringify(this.tasks));
+    }
+  },
+  getters: {
+    filteredTasks: (state) => (search, filterStatus, filterPriority, filterDate) => {
+      if (!state.currentUser) return [];
+      return state.tasks
+        .filter(task => task.userId === state.currentUser)
+        .filter(task => {
+          if (filterStatus === 'completed' && !task.completed) return false;
+          if (filterStatus === 'notCompleted' && task.completed) return false;
+
+          if (search && !task.title.toLowerCase().includes(search.toLowerCase())) return false;
+
+          if (filterPriority && task.priority !== filterPriority) return false;
+          if (filterDate && task.dueDate < filterDate) return false;
+
+          return true;
+        });
+    }
+  }
+});

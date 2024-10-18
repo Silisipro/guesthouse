@@ -1,0 +1,601 @@
+<template>
+  <div class="p-4">
+    <form @submit.prevent="handleSubmit">
+      <input v-model="task.title" type="text" placeholder="Title" class="border p-2 rounded mb-2" required />
+      <textarea v-model="task.description" placeholder="Description" class="border p-2 rounded mb-2" required></textarea>
+      <input v-model="task.startDate" type="date" class="border p-2 rounded mb-2" required />
+      <input v-model="task.dueDate" type="date" class="border p-2 rounded mb-2" required />
+      <select v-model="task.priority" class="border p-2 rounded mb-2" required>
+        <option value="">Select Priority</option>
+        <option value="Low">Low</option>
+        <option value="Medium">Medium</option>
+        <option value="High">High</option>
+      </select>
+      <button type="submit" class="bg-blue-500 text-white px-4 py-2 rounded">{{ editIndex !== null ? 'Update' : 'Add' }}</button>
+    </form>
+  </div>
+</template>
+
+<script setup>
+import { ref, computed, watch } from 'vue'
+import { useStore } from 'vuex'
+
+const store = useStore()
+const task = ref({
+  title: '',
+  description: '',
+  startDate: '',
+  dueDate: '',
+  priority: ''
+})
+const editIndex = ref(null)
+
+const handleSubmit = () => {
+  if (editIndex.value !== null) {
+    store.dispatch('updateTask', { index: editIndex.value, task: task.value })
+  } else {
+    store.dispatch('addTask', task.value)
+  }
+  resetForm()
+}
+
+const resetForm = () => {
+  task.value = {
+    title: '',
+    description: '',
+    startDate: '',
+    dueDate: '',
+    priority: ''
+  }
+  editIndex.value = null
+}
+
+// Watch for the current editing index change
+watch(() => store.state.editIndex, (newIndex) => {
+  if (newIndex !== null) {
+    const existingTask = store.state.tasks[newIndex]
+    task.value = { ...existingTask }
+    editIndex.value = newIndex
+  } else {
+    resetForm()
+  }
+})
+</script>
+
+
+
+<template>
+  <div class="p-4">
+    <ul>
+      <TodoItem v-for="(task, index) in sortedTasks" :key="index" :task="task" :index="index" />
+    </ul>
+  </div>
+</template>
+
+<script setup>
+import { computed } from 'vue'
+import { useStore } from 'vuex'
+import TodoItem from './TodoItem.vue'
+
+const store = useStore()
+const sortedTasks = computed(() => {
+  // Tri par date d'échéance et priorité
+  return [...store.state.tasks].sort((a, b) => new Date(a.dueDate) - new Date(b.dueDate))
+})
+</script>
+
+
+
+<template>
+  <li class="flex justify-between items-center mb-2">
+    <div>
+      <h3 class="font-bold">{{ task.title }}</h3>
+      <p>{{ task.description }}</p>
+      <p>{{ task.startDate }} - {{ task.dueDate }} ({{ task.priority }})</p>
+    </div>
+    <div>
+      <button @click="editTask" class="bg-blue-500 text-white px-2 py-1 rounded">Edit</button>
+      <button @click="confirmDelete" class="bg-red-500 text-white px-2 py-1 rounded">Delete</button>
+    </div>
+  </li>
+</template>
+
+<script setup>
+import { useStore } from 'vuex'
+import { ref } from 'vue'
+
+const props = defineProps({
+  task: Object,
+  index: Number
+})
+
+const store = useStore()
+const confirmDelete = () => {
+  if (confirm('Are you sure you want to delete this task?')) {
+    store.dispatch('deleteTask', props.index)
+  }
+}
+
+const editTask = () => {
+  store.commit('setEditIndex', props.index)
+}
+</script>
+
+
+<template>
+  <div class="p-4">
+    <ul>
+      <TodoItem v-for="(task, index) in sortedTasks" :key="index" :task="task" :index="index" />
+    </ul>
+  </div>
+</template>
+
+<script setup>
+import { computed } from 'vue'
+import { useStore } from 'vuex'
+import TodoItem from './TodoItem.vue'
+
+const store = useStore()
+const sortedTasks = computed(() => {
+  // Tri par date d'échéance et priorité
+  return [...store.state.tasks].sort((a, b) => new Date(a.dueDate) - new Date(b.dueDate))
+})
+</script>
+
+
+<template>
+  <li class="flex justify-between items-center mb-2">
+    <div>
+      <h3 class="font-bold">{{ task.title }}</h3>
+      <p>{{ task.description }}</p>
+      <p>{{ task.startDate }} - {{ task.dueDate }} ({{ task.priority }})</p>
+    </div>
+    <div>
+      <button @click="editTask" class="bg-blue-500 text-white px-2 py-1 rounded">Edit</button>
+      <button @click="confirmDelete" class="bg-red-500 text-white px-2 py-1 rounded">Delete</button>
+    </div>
+  </li>
+</template>
+
+<script setup>
+import { useStore } from 'vuex'
+import { ref } from 'vue'
+
+const props = defineProps({
+  task: Object,
+  index: Number
+})
+
+const store = useStore()
+const confirmDelete = () => {
+  if (confirm('Are you sure you want to delete this task?')) {
+    store.dispatch('deleteTask', props.index)
+  }
+}
+
+const editTask = () => {
+  store.commit('setEditIndex', props.index)
+}
+</script>
+
+
+
+import { createStore } from 'vuex'
+
+export default createStore({
+  state() {
+    return {
+      tasks: JSON.parse(localStorage.getItem('tasks')) || [],
+      editIndex: null
+    }
+  },
+  mutations: {
+    setEditIndex(state, index) {
+      state.editIndex = index
+    }
+  },
+  actions: {
+    addTask({ state, commit }, task) {
+      state.tasks.push(task)
+      localStorage.setItem('tasks', JSON.stringify(state.tasks))
+    },
+    updateTask({ state, commit }, { index, task }) {
+      state.tasks[index] = task
+      localStorage.setItem('tasks', JSON.stringify(state.tasks))
+    },
+    deleteTask({ state, commit }, index) {
+      state.tasks.splice(index, 1)
+      localStorage.setItem('tasks', JSON.stringify(state.tasks))
+    }
+  }
+})
+
+
+<template>
+  <div class="p-4">
+    <ul>
+      <TodoItem v-for="(task, index) in sortedTasks" :key="index" :task="task" :index="index" />
+    </ul>
+  </div>
+</template>
+
+<script setup>
+import { computed } from 'vue'
+import { useStore } from 'vuex'
+import TodoItem from './TodoItem.vue'
+
+const store = useStore()
+const sortedTasks = computed(() => {
+  // Tri par date d'échéance et priorité
+  return [...store.state.tasks].sort((a, b) => new Date(a.dueDate) - new Date(b.dueDate))
+})
+</script>
+
+
+<template>
+  <div class="p-4">
+    <h2 class="text-xl font-bold mb-4">{{ isEditing ? 'Edit Task' : 'Add Task' }}</h2>
+    <form @submit.prevent="saveTask">
+      <div class="mb-4">
+        <label class="block mb-1">Title:</label>
+        <input v-model="task.title" class="border p-2 rounded w-full" required />
+      </div>
+      <div class="mb-4">
+        <label class="block mb-1">Description:</label>
+        <textarea v-model="task.description" class="border p-2 rounded w-full" required></textarea>
+      </div>
+      <div class="mb-4">
+        <label class="block mb-1">Start Date:</label>
+        <input v-model="task.startDate" type="date" class="border p-2 rounded w-full" required />
+      </div>
+      <div class="mb-4">
+        <label class="block mb-1">Due Date:</label>
+        <input v-model="task.dueDate" type="date" class="border p-2 rounded w-full" required />
+      </div>
+      <div class="mb-4">
+        <label class="block mb-1">Priority:</label>
+        <select v-model="task.priority" class="border p-2 rounded w-full">
+          <option value="low">Low</option>
+          <option value="medium">Medium</option>
+          <option value="high">High</option>
+        </select>
+      </div>
+      <button type="submit" class="bg-green-500 text-white px-4 py-2 rounded">
+        {{ isEditing ? 'Update Task' : 'Add Task' }}
+      </button>
+    </form>
+  </div>
+</template>
+
+<script setup>
+import { ref, computed } from 'vue'
+import { useStore } from 'vuex'
+import { useRoute, useRouter } from 'vue-router'
+
+const store = useStore()
+const router = useRouter()
+const route = useRoute()
+
+const isEditing = computed(() => !!route.params.id)
+const task = ref({
+  title: '',
+  description: '',
+  startDate: '',
+  dueDate: '',
+  priority: 'low'
+})
+
+if (isEditing.value) {
+  const taskId = route.params.id
+  const existingTask = store.state.tasks.find(task => task.id === taskId)
+  if (existingTask) {
+    task.value = { ...existingTask }
+  }
+}
+
+const saveTask = () => {
+  if (isEditing.value) {
+    store.dispatch('updateTask', { id: route.params.id, updatedTask: task.value })
+  } else {
+    store.dispatch('addTask', task.value)
+  }
+  router.push('/')
+}
+</script>
+
+
+<template>
+  <div class="p-4">
+    <h2 class="text-xl font-bold mb-4">Task List</h2>
+    <ul>
+      <li v-for="task in sortedTasks" :key="task.id" class="flex justify-between items-center mb-2">
+        <div>
+          <h3 class="font-bold">{{ task.title }}</h3>
+          <p>{{ task.description }}</p>
+          <p class="text-gray-600">Start Date: {{ task.startDate }}</p>
+          <p class="text-gray-600">Due Date: {{ task.dueDate }}</p>
+          <p class="text-gray-600">Priority: {{ task.priority }}</p>
+        </div>
+        <div>
+          <router-link :to="`/edit/${task.id}`" class="bg-blue-500 text-white px-2 py-1 rounded">Edit</router-link>
+          <button @click="confirmDelete(task.id)" class="bg-red-500 text-white px-2 py-1 rounded ml-2">Delete</button>
+        </div>
+      </li>
+    </ul>
+  </div>
+</template>
+
+<script setup>
+import { computed } from 'vue'
+import { useStore } from 'vuex'
+import { useRouter } from 'vue-router'
+
+const store = useStore()
+const router = useRouter()
+
+const sortedTasks = computed(() => {
+  return store.state.tasks.slice().sort((a, b) => new Date(a.dueDate) - new Date(b.dueDate))
+})
+
+const confirmDelete = (id) => {
+  if (confirm('Are you sure you want to delete this task?')) {
+    store.dispatch('removeTask', id)
+  }
+}
+</script>
+import { createStore } from 'vuex'
+
+export default createStore({
+  state() {
+    return {
+      tasks: JSON.parse(localStorage.getItem('tasks')) || []
+    }
+  },
+  actions: {
+    addTask({ commit }, task) {
+      const newTask = { ...task, id: Date.now().toString() }
+      commit('SET_TASKS', [...this.state.tasks, newTask])
+    },
+    updateTask({ commit }, { id, updatedTask }) {
+      const updatedTasks = this.state.tasks.map(task => task.id === id ? { ...updatedTask, id } : task)
+      commit('SET_TASKS', updatedTasks)
+    },
+    removeTask({ commit }, id) {
+      const filteredTasks = this.state.tasks.filter(task => task.id !== id)
+      commit('SET_TASKS', filteredTasks)
+    }
+  },
+  mutations: {
+    SET_TASKS(state, tasks) {
+      state.tasks = tasks
+      localStorage.setItem('tasks', JSON.stringify(tasks))
+    }
+  }
+})
+
+import { createApp } from 'vue'
+import App from './App.vue'
+import store from './store'
+import router from './router'
+import './assets/tailwind.css'
+
+createApp(App).use(store).use(router).mount('#app')
+
+
+
+
+
+
+
+<template>
+  <div class="p-4">
+    <h2 class="text-xl font-bold mb-4">Task List</h2>
+    <ul>
+      <li v-for="task in sortedTasks" :key="task.id" class="flex justify-between items-center mb-2">
+        <div>
+          <h3 class="font-bold">{{ task.title }}</h3>
+          <p>{{ task.description }}</p>
+          <p class="text-gray-600">Start Date: {{ task.startDate }}</p>
+          <p class="text-gray-600">Due Date: {{ task.dueDate }}</p>
+          <p class="text-gray-600">Priority: {{ task.priority }}</p>
+        </div>
+        <div>
+          <router-link :to="`/edit/${task.id}`" class="bg-blue-500 text-white px-2 py-1 rounded">Edit</router-link>
+          <button @click="confirmDelete(task.id)" class="bg-red-500 text-white px-2 py-1 rounded ml-2">Delete</button>
+        </div>
+      </li>
+    </ul>
+  </div>
+</template>
+
+<script setup>
+import { computed } from 'vue'
+import { useStore } from 'vuex'
+import { useRouter } from 'vue-router'
+
+const store = useStore()
+const router = useRouter()
+
+const sortedTasks = computed(() => {
+  return store.state.tasks.slice().sort((a, b) => new Date(a.dueDate) - new Date(b.dueDate))
+})
+
+const confirmDelete = (id) => {
+  if (confirm('Are you sure you want to delete this task?')) {
+    store.dispatch('removeTask', id)
+  }
+}
+</script>
+
+
+<template>
+  <div class="p-4">
+    <form @submit.prevent="handleSubmit">
+      <div class="mb-4">
+        <label class="block text-sm font-medium text-gray-700">Title</label>
+        <input v-model="form.title" type="text" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm"/>
+      </div>
+      <div class="mb-4">
+        <label class="block text-sm font-medium text-gray-700">Description</label>
+        <textarea v-model="form.description" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm"></textarea>
+      </div>
+      <div class="mb-4">
+        <label class="block text-sm font-medium text-gray-700">Start Date</label>
+        <input v-model="form.startDate" type="date" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm"/>
+      </div>
+      <div class="mb-4">
+        <label class="block text-sm font-medium text-gray-700">Due Date</label>
+        <input v-model="form.dueDate" type="date" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm"/>
+      </div>
+      <div class="mb-4">
+        <label class="block text-sm font-medium text-gray-700">Priority</label>
+        <select v-model="form.priority" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm">
+          <option value="">None</option>
+          <option value="Low">Low</option>
+          <option value="Medium">Medium</option>
+          <option value="High">High</option>
+        </select>
+      </div>
+      <button type="submit" class="bg-blue-500 text-white px-4 py-2 rounded">Save</button>
+    </form>
+  </div>
+</template>
+
+<script setup>
+import { ref, watch } from 'vue'
+import useTodos from '../store/useTodos'
+
+const { addTodo, updateTodo } = useTodos()
+
+const props = defineProps({
+  todo: Object,
+  index: Number
+})
+
+const form = ref({
+  title: '',
+  description: '',
+  startDate: '',
+  dueDate: '',
+  priority: ''
+})
+
+watch(() => props.todo, (newTodo) => {
+  if (newTodo) {
+    form.value = { ...newTodo }
+  }
+})
+
+const handleSubmit = () => {
+  if (props.index !== undefined) {
+    updateTodo(props.index, form.value)
+  } else {
+    addTodo(form.value)
+  }
+  form.value = {
+    title: '',
+    description: import { ref, computed } from 'vue'
+
+const useTodos = () => {
+  const todos = ref(JSON.parse(localStorage.getItem('todos')) || [])
+
+  const addTodo = (todo) => {
+    todos.value.push(todo)
+    updateLocalStorage()
+  }
+
+  const updateTodo = (index, updatedTodo) => {
+    todos.value[index] = updatedTodo
+    updateLocalStorage()
+  }
+
+  const deleteTodo = (index) => {
+    todos.value.splice(index, 1)
+    updateLocalStorage()
+  }
+
+  const updateLocalStorage = () => {
+    localStorage.setItem('todos', JSON.stringify(todos.value))
+  }
+
+  const sortedTodos = computed(() => {
+    return [...todos.value].sort((a, b) => new Date(a.dueDate) - new Date(b.dueDate))
+  })
+
+  return {
+    todos: sortedTodos,
+    addTodo,
+    updateTodo,
+    deleteTodo
+  }
+}
+
+export default useTodos
+'',
+    startDate: '',
+    dueDate: '',
+    priority: ''
+  }
+}
+</script>
+
+
+
+
+
+<template>
+  <div class="p-4">
+    <ul>
+      <li v-for="(todo, index) in todos" :key="index" class="flex justify-between items-center mb-2">
+        <div>
+          <h2 class="font-semibold">{{ todo.title }}</h2>
+          <p>{{ todo.description }}</p>
+          <p>Start Date: {{ todo.startDate }}</p>
+          <p>Due Date: {{ todo.dueDate }}</p>
+          <p>Priority: {{ todo.priority }}</p>
+        </div>
+        <div>
+          <button @click="editTodo(index)" class="bg-blue-500 text-white px-2 py-1 rounded">Edit</button>
+          <button @click="confirmDelete(index)" class="bg-red-500 text-white px-2 py-1 rounded">Delete</button>
+        </div>
+      </li>
+    </ul>
+    <TodoForm :todo="selectedTodo" :index="selectedIndex" v-if="selectedTodo !== null"/>
+  </div>
+</template>
+
+<script setup>
+import { ref, computed } from 'vue'
+import useTodos from '../store/useTodos'
+import TodoForm from './TodoForm.vue'
+
+const { todos, deleteTodo } = useTodos()
+
+const selectedTodo = ref(null)
+const selectedIndex = ref(null)
+
+const editTodo = (index) => {
+  selectedTodo.value = { ...todos.value[index] }
+  selectedIndex.value = index
+}
+
+const confirmDelete = (index) => {
+  if (confirm('Are you sure you want to delete this task?')) {
+    deleteTodo(index)
+  }
+}
+
+const sortedTodos = computed(() => todos.value)
+</script>
+
+<template>
+  <div class="container mx-auto p-4">
+    <h1 class="text-2xl font-bold mb-4">To-Do List</h1>
+    <TodoList />
+  </div>
+</template>
+
+<script setup>
+import TodoList from './components/TodoList.vue'
+</script>
+
